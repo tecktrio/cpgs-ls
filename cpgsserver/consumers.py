@@ -30,10 +30,12 @@ async def video_stream():
         if DEBUG:print("Cannot open camera")
         return
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            if DEBUG:print("Can't receive frame (stream end?). Exiting ...")
-            break
+        
+        if IS_PI_CAMERA_SOURCE:
+            frame = cap.capture_array()
+        else:
+            ret, frame = cap.read()
+
         ret, buffer = cv2.imencode('.jpg', frame)
         frame_bytes = buffer.tobytes()
         encoded_frame = base64.b64encode(frame_bytes).decode('utf-8')
@@ -70,10 +72,11 @@ async def video_stream_for_calibrate():
 
 # GET ONE FRAME
 async def capture():
-    if not cap.isOpened():
-        if DEBUG:print("Cannot open camera")
-        return
-    ret, frame = cap.read()
+
+    if IS_PI_CAMERA_SOURCE:
+        frame = cap.capture_array()
+    else:
+        ret, frame = cap.read()
     return frame
 
 # SCAN EACH SPACE/SLOT FOR VEHICLE DECTECTION
