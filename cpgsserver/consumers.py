@@ -26,9 +26,7 @@ else:
 
 # VIDEO STREMER
 async def video_stream():
-    if not cap.isOpened():
-        if DEBUG:print("Cannot open camera")
-        return
+  
     while True:
         
         if IS_PI_CAMERA_SOURCE:
