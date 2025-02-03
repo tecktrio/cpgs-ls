@@ -42,16 +42,19 @@ async def video_stream():
 
 # VIDEO STREAMER FOR CALIBRATION
 async def video_stream_for_calibrate():
-    if not cap.isOpened():
-        if DEBUG:print("Cannot open camera")
-        return
+    # if not cap.isOpened():
+    #     if DEBUG:print("Cannot open camera")
+    #     return
     while True:
         # await asyncio.sleep(.1)
         # frame = picam2.capture_array()
         # frame = cap.read()
-        ret, frame = cap.read()
-        if not ret:
-            if DEBUG:print("Can't receive frame (stream end?). Exiting ...")
+        if IS_PI_CAMERA_SOURCE:
+            frame = cap.capture_array()
+        else:
+            ret, frame = cap.read()
+        # if not ret:
+        #     if DEBUG:print("Can't receive frame (stream end?). Exiting ...")
 
         with open('coordinates','rb')as data:
             for slot_coordinates in pickle.load(data):
