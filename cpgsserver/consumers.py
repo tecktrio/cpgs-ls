@@ -20,9 +20,10 @@ DEBUG = True
 if IS_PI_CAMERA_SOURCE:
     from picamera2 import Picamera2
     cap = Picamera2()
-    config = cap.create_preview_configuration()
-    config['awb_mode'] = 'fluorescent' 
-    cap.configure(config)
+    print(cap.list_controls()) 
+    # config = cap.create_preview_configuration()
+    # config['awb_mode'] = 'fluorescent' 
+    # cap.configure(config)
     cap.start()
 else:
     cap = cv2.VideoCapture(1) 
