@@ -1,6 +1,7 @@
 
 import asyncio
 import base64
+import datetime
 import json
 import math
 import pickle
@@ -11,11 +12,13 @@ import numpy as np
 from channels.generic.websocket import AsyncWebsocketConsumer
 import cv2
 import easyocr
+import socket
 
 
-from cpgsserver.settings import  IS_PI_CAMERA_SOURCE
+from cpgsserver.settings import  IS_PI_CAMERA_SOURCE, MAIN_SERVER_IP, MAIN_SERVER_PORT
 
 DEBUG = True
+
 
 if IS_PI_CAMERA_SOURCE:
     from picamera2 import Picamera2
@@ -26,8 +29,28 @@ if IS_PI_CAMERA_SOURCE:
     # cap.configure(config)
     cap.start()
 else:
-    cap = cv2.VideoCapture(1) 
+    cap = cv2.VideoCapture(0) 
+   
+def network_handler(self, timestamp = None, slot = None, status = None, licenseNumber = None):
+    '''
+    Sends the slotData to the server in UDP protocol
+    '''
+    slotData = {
+        "timestamp":timestamp,
+        "slot":slot,
+        "status":status,
+        "licence_number":licenseNumber
+    }
 
+    bytesToSend  = str(slotData).encode('utf-8')
+    serverSocketAddress   = (MAIN_SERVER_IP, MAIN_SERVER_PORT)
+    bufferSize          = 1024
+    # print(self.slotData)
+    try:
+        UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        UDPClientSocket.sendto(bytesToSend, serverSocketAddress)
+    except Exception as e:
+        print(e)
 
 # VIDEO STREMER
 async def video_stream():
@@ -288,26 +311,17 @@ class ServerConsumer(AsyncWebsocketConsumer):
                                 await self.send(json.dumps({"slot":slot,"license":text}))
                             senddata()
                             if DEBUG:print("Vehicle Details",listOfLicenceNumbers)
+                            if len(listOfLicenceNumbers) > 0:
+                                print('sending data to server')
+                                network_handler(timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), status  = 'Occupied', licenseNumber = listOfLicenceNumbers[0])
+                            else:
+                                dectect_license_plate()
+
                         if DEBUG:print('starting License Plate number dectection',last_parked_slot)
                         tread1 = threading.Thread(target=dectect_license_plate, args=(last_parked_slot,))
                         tread1.start()
 
-                        # self.network_handler(timestamp = self.current_timestamp(), status  = self.slotStatus["occupied"], licenseNumber = LicenceNumber['data'])
-                            # thread1 = threading.Thread(target=getLicenceNumber)
-                            # thread1.start()
-                            # LicenceNumber = scan_license_number(slotIndex)
-                            # listOfLicenceNumbers = []
-                            # slotImage = cv2.imread(f'SlotImages/{slotIndex}.jpg')
-                            # reader = easyocr.Reader(model_storage_directory = 'LanguageModels', lang_list = ['en'])
-                            # result = reader.readtext(slotImage)
-                            # data = [entry[1] for entry in result]
-                            # for text in data:
-                            #     # print("Found : ",str(text).replace(" ",''))
-                            #     if len(text) != 0 and len(text) > 4:
-                            #     # if len(text) != 0:
-                            #         listOfLicenceNumbers.append({'slot_id':slotIndex,'Number':text}) 
-                            # print({'status':True,'data':listOfLicenceNumbers})
-
+                          
 
                     # Runs when the vehicle is unparked
                     elif len(CurrentAvailableSlots) > len(lastAvailableSlots):
