@@ -33,15 +33,15 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'channels',
-    # 'corsheaders',
+    'corsheaders',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
 ]
 
 MIDDLEWARE = [
-    # 'corsheaders.middleware.CorsMiddleware',
-    # 'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     
@@ -128,10 +128,8 @@ STATIC_ROOT = 'staticfiles'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
 CORS_ALLOW_ALL_ORIGINS = True
-
-MAIN_SERVER_IP = '192.168.1.100'
-MAIN_SERVER_PORT = 9090
+MAIN_SERVER_IP = 'https://cpgs.liquidlab.in'
+MAIN_SERVER_PORT = 8000
 # INPUT CAMERA SOURCE
 IS_PI_CAMERA_SOURCE = True

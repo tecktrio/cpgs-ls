@@ -1,7 +1,10 @@
+import json
 import subprocess
 import cv2
-from django.http import StreamingHttpResponse
-from django.shortcuts import render
+from django.http import StreamingHttpResponse, JsonResponse
+from django.shortcuts import render,HttpResponse
+
+# from rest_framework.response import Response
 
 # Create your views here.
 def change_hostname(new_hostname):
@@ -72,3 +75,27 @@ def video_stream():
 
 def stream(request):
     return StreamingHttpResponse(video_stream(), content_type='multipart/x-mixed-replace; boundary=frame')
+
+
+def update_threshold(request):
+    data = request.data
+    print(data)
+    print('new thresh',data.threshold)
+    with open('config.json','rb') as file:
+        data = json.load(file)
+        print(data)
+    return HttpResponse(data['threshold'])
+
+
+def get_threshold(request):
+    with open('config.json','rb') as file:
+        data = json.load(file)
+        print(data)
+    return HttpResponse(data['threshold'])
+
+
+def get_slot_details(request):
+    return JsonResponse({
+        'NoOfSlots':3
+    })
+

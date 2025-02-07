@@ -22,6 +22,10 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('update_threshold',views.update_threshold),
+    path('get_threshold',views.get_threshold),
+    path('get_slot_details',views.get_slot_details),
+    
     # path('', TemplateView.as_view(template_name = 'index.html')),
     path('',TemplateView.as_view(template_name = 'index.html'))
-]+ staticfiles_urlpatterns() 
+] + staticfiles_urlpatterns()

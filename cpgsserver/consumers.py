@@ -9,6 +9,7 @@ import threading
 import time
 import base64
 import numpy as np
+import requests
 from channels.generic.websocket import AsyncWebsocketConsumer
 import cv2
 import easyocr
@@ -31,7 +32,7 @@ if IS_PI_CAMERA_SOURCE:
 else:
     cap = cv2.VideoCapture(0) 
    
-def network_handler(self, timestamp = None, slot = None, status = None, licenseNumber = None):
+def network_handler(timestamp = None, slot = None, status = None, licenseNumber = None):
     '''
     Sends the slotData to the server in UDP protocol
     '''
@@ -43,12 +44,15 @@ def network_handler(self, timestamp = None, slot = None, status = None, licenseN
     }
 
     bytesToSend  = str(slotData).encode('utf-8')
-    serverSocketAddress   = (MAIN_SERVER_IP, MAIN_SERVER_PORT)
+    # serverSocketAddress   = (MAIN_SERVER_IP, MAIN_SERVER_PORT)
     bufferSize          = 1024
     # print(self.slotData)
     try:
-        UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        UDPClientSocket.sendto(bytesToSend, serverSocketAddress)
+        url = MAIN_SERVER_IP
+        requests.post(url, json=slotData)
+        # UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        # UDPClientSocket.sendto(bytesToSend, serverSocketAddress)
+        print('send Successfuly')
     except Exception as e:
         print(e)
 
@@ -128,6 +132,7 @@ async def scan_slots():
                                                   configuration_data["CameraFilterThreshOnCalibrate"], 
                                                   configuration_data["CameraFilterMaximumThreshOnCalibrate"], 
                                                   cv2.THRESH_BINARY_INV)
+        # cv2.imshow("thresh",ThreshHoldedFrame)
         imgmedian = cv2.medianBlur(ThreshHoldedFrame, 5)
         kernal = np.ones((3, 3), np.uint8)
         imgdilate = cv2.dilate(imgmedian, kernel=kernal, iterations=configuration_data["BoostThreshAT"])
@@ -146,7 +151,10 @@ async def scan_slots():
             image_original = await capture()
             cropped_image_original = image_original[y:y+h, x:x+w]
             frame_list_of_cropped_images.append(cropped_image_original)
+
             zero_count = cv2.countNonZero(cropped_image)
+            # print('scanning slots',zero_count)
+
             if zero_count < TriggerVehicleAt:
                 VaccantSlots.append(slotIndex)
             else:
@@ -275,7 +283,7 @@ class ServerConsumer(AsyncWebsocketConsumer):
                     encoded_spaces.append(frame)
                 await self.send(json.dumps({'fnames': encoded_spaces}))
                 if len(CurrentAvailableSlots) != len(lastAvailableSlots):
-                    time.sleep(1)
+                    # time.sleep(1)
                     _, CurrentAvailableSlots , OccupiedSlots, poslist, frame_list_of_cropped_images = await scan_slots()
                     if len(CurrentAvailableSlots) < len(lastAvailableSlots):
                         for slot in lastAvailableSlots:
@@ -283,6 +291,35 @@ class ServerConsumer(AsyncWebsocketConsumer):
                                 last_parked_slot = slot
                                 if DEBUG:print('Parked at space :', slot)
                                 await self.send(json.dumps({"slot":slot,"status":"parked"}))
+                                def dectect_license_plate(slot):
+                                    if DEBUG:print('starting License Plate number dectection',last_parked_slot)
+                                    waitToScanFor = 10
+                                    timer = 0
+                                    while True:
+                                        timer += 1
+                                        if timer == waitToScanFor:
+                                            break
+                                        time.sleep(1)
+                                    listOfLicenceNumbers = []
+                                    reader = easyocr.Reader(model_storage_directory = 'LanguageModels', lang_list = ['en'])
+                                    result = reader.readtext(cropped_image)
+                                    data = [entry[1] for entry in result]
+                                    for text in data:
+                                        if len(text) != 0 and len(text) > 4:
+                                            listOfLicenceNumbers.append({'slot_id':slot,'Number':text}) 
+                                            
+                                    async def senddata():
+                                        await self.send(json.dumps({"slot":slot,"license":text}))
+                                    senddata()
+                                    if DEBUG:print("Vehicle Details",listOfLicenceNumbers)
+                                    if len(listOfLicenceNumbers) >= 0:
+                                        print('sending data to server')
+                                        network_handler(timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), status  = 'Occupied', licenseNumber = listOfLicenceNumbers)
+                                    # else:
+                                    #     dectect_license_plate()
+
+                                tread1 = threading.Thread(target=dectect_license_plate, args=(last_parked_slot,))
+                                tread1.start()
 
                         lastAvailableSlots = CurrentAvailableSlots
                         pos = poslist[OccupiedSlots[-1]]
@@ -292,34 +329,7 @@ class ServerConsumer(AsyncWebsocketConsumer):
                         cropped_image = frame[y:y+h, x:x+w]
 
                         
-                        def dectect_license_plate(slot):
-                            waitToScanFor = 10
-                            timer = 0
-                            while True:
-                                timer += 1
-                                if timer == waitToScanFor:
-                                    break
-                                time.sleep(1)
-                            listOfLicenceNumbers = []
-                            reader = easyocr.Reader(model_storage_directory = 'LanguageModels', lang_list = ['en'])
-                            result = reader.readtext(cropped_image)
-                            data = [entry[1] for entry in result]
-                            for text in data:
-                                if len(text) != 0 and len(text) > 4:
-                                    listOfLicenceNumbers.append({'slot_id':slot,'Number':text}) 
-                            async def senddata():
-                                await self.send(json.dumps({"slot":slot,"license":text}))
-                            senddata()
-                            if DEBUG:print("Vehicle Details",listOfLicenceNumbers)
-                            if len(listOfLicenceNumbers) > 0:
-                                print('sending data to server')
-                                network_handler(timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"), status  = 'Occupied', licenseNumber = listOfLicenceNumbers[0])
-                            else:
-                                dectect_license_plate()
-
-                        if DEBUG:print('starting License Plate number dectection',last_parked_slot)
-                        tread1 = threading.Thread(target=dectect_license_plate, args=(last_parked_slot,))
-                        tread1.start()
+                        
 
                           
 
